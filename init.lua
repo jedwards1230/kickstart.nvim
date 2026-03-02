@@ -91,7 +91,7 @@ vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -150,6 +150,21 @@ vim.o.splitbelow = true
 vim.o.list = true
 vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 
+-- Thicker, more visible window separators
+vim.opt.fillchars = { vert = '▕', horiz = '▁', horizup = '▁', horizdown = '▁', vertleft = '▕', vertright = '▕', verthoriz = '▕' }
+vim.api.nvim_create_autocmd('ColorScheme', {
+  callback = function()
+    vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#444444', bold = true })
+  end,
+})
+vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#444444', bold = true })
+
+-- Undercurl support (works great in Ghostty)
+vim.api.nvim_set_hl(0, 'DiagnosticUnderlineError', { undercurl = true, sp = 'Red' })
+vim.api.nvim_set_hl(0, 'DiagnosticUnderlineWarn', { undercurl = true, sp = 'Yellow' })
+vim.api.nvim_set_hl(0, 'DiagnosticUnderlineInfo', { undercurl = true, sp = 'Blue' })
+vim.api.nvim_set_hl(0, 'DiagnosticUnderlineHint', { undercurl = true, sp = 'Green' })
+
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
 
@@ -170,6 +185,23 @@ vim.o.confirm = true
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+
+-- Tabbed terminal panel (bottom of editor)
+-- Any tab can run `claude` and gets full nvim integration via claudecode.nvim's background server.
+local tt = require 'custom.terminal_tabs'
+vim.keymap.set('n', [[<C-\>]], function() tt.toggle() end, { desc = 'Toggle terminal panel' })
+vim.keymap.set('t', [[<C-\>]], function() vim.cmd 'stopinsert' tt.toggle() end, { desc = 'Hide terminal panel' })
+vim.keymap.set('n', '<leader>tn', function() tt.new_tab() end, { desc = '[T]erminal [N]ew tab' })
+vim.keymap.set('n', '<leader>ac', function() tt.open_claude() end, { desc = '[A]I [C]laude tab' })
+vim.keymap.set('n', '<leader>tx', function() tt.close_tab() end, { desc = '[T]erminal close tab' })
+vim.keymap.set('n', '<leader>tr', function()
+  vim.ui.input({ prompt = 'Tab name: ', default = tt.terminals[tt.active] and tt.terminals[tt.active].name or '' }, function(name)
+    if name and name ~= '' then tt.rename(name) end
+  end)
+end, { desc = '[T]erminal [R]ename tab' })
+vim.keymap.set({ 'n', 't' }, '<C-PageDown>', function() tt.next() end, { desc = 'Next terminal tab' })
+vim.keymap.set({ 'n', 't' }, '<C-PageUp>', function() tt.prev() end, { desc = 'Prev terminal tab' })
+
 
 -- Diagnostic Config & Keymaps
 -- See :help vim.diagnostic.Opts
@@ -196,6 +228,15 @@ vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagn
 -- NOTE: This won't work in all terminal emulators/tmux/etc. Try your own mapping
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+
+-- Auto-enter insert mode when focusing a terminal window.
+-- WinEnter only (not BufWinEnter) so it only fires when you actually focus the window,
+-- not when a terminal buffer is displayed in a background window.
+vim.api.nvim_create_autocmd('WinEnter', {
+  callback = function()
+    if vim.bo.buftype == 'terminal' then vim.cmd 'startinsert' end
+  end,
+})
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -916,14 +957,14 @@ require('lazy').setup({
   -- require 'kickstart.plugins.indent_line',
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
