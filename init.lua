@@ -152,18 +152,16 @@ vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 
 -- Thicker, more visible window separators
 vim.opt.fillchars = { vert = '▕', horiz = '▁', horizup = '▁', horizdown = '▁', vertleft = '▕', vertright = '▕', verthoriz = '▕' }
-vim.api.nvim_create_autocmd('ColorScheme', {
-  callback = function()
-    vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#444444', bold = true })
-  end,
-})
-vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#444444', bold = true })
-
--- Undercurl support (works great in Ghostty)
-vim.api.nvim_set_hl(0, 'DiagnosticUnderlineError', { undercurl = true, sp = 'Red' })
-vim.api.nvim_set_hl(0, 'DiagnosticUnderlineWarn', { undercurl = true, sp = 'Yellow' })
-vim.api.nvim_set_hl(0, 'DiagnosticUnderlineInfo', { undercurl = true, sp = 'Blue' })
-vim.api.nvim_set_hl(0, 'DiagnosticUnderlineHint', { undercurl = true, sp = 'Green' })
+local function set_custom_highlights()
+  vim.api.nvim_set_hl(0, 'WinSeparator', { fg = '#444444', bold = true })
+  -- Undercurl support (works great in Ghostty)
+  vim.api.nvim_set_hl(0, 'DiagnosticUnderlineError', { undercurl = true, sp = 'Red' })
+  vim.api.nvim_set_hl(0, 'DiagnosticUnderlineWarn', { undercurl = true, sp = 'Yellow' })
+  vim.api.nvim_set_hl(0, 'DiagnosticUnderlineInfo', { undercurl = true, sp = 'Blue' })
+  vim.api.nvim_set_hl(0, 'DiagnosticUnderlineHint', { undercurl = true, sp = 'Green' })
+end
+vim.api.nvim_create_autocmd('ColorScheme', { callback = set_custom_highlights })
+set_custom_highlights()
 
 -- Preview substitutions live, as you type!
 vim.o.inccommand = 'split'
@@ -358,7 +356,8 @@ require('lazy').setup({
       -- Document existing key chains
       spec = {
         { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
-        { '<leader>t', group = '[T]oggle' },
+        { '<leader>t', group = '[T]erminal' },
+        { '<leader>a', group = '[A]I' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
         { 'gr', group = 'LSP Actions', mode = { 'n' } },
       },
@@ -644,16 +643,42 @@ require('lazy').setup({
       --  See `:help lsp-config` for information about keys and how to configure
       ---@type table<string, vim.lsp.Config>
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
-        --
-        -- Some languages (like typescript) have entire language plugins that can be useful:
-        --    https://github.com/pmizio/typescript-tools.nvim
-        --
-        -- But for many setups, the LSP (`ts_ls`) will work just fine
-        -- ts_ls = {},
+        -- Python
+        pyright = {},
+
+        -- YAML (with schemaStore for k8s, docker-compose, GitHub Actions, etc.)
+        yamlls = {
+          settings = {
+            yaml = {
+              schemaStore = { enable = true },
+              validate = true,
+              hover = true,
+              completion = true,
+            },
+          },
+        },
+
+        -- JSON (with schemaStore)
+        jsonls = {
+          settings = {
+            json = {
+              schemaStore = { enable = true },
+              validate = { enable = true },
+            },
+          },
+        },
+
+        -- Shell scripts
+        bashls = {},
+
+        -- Dockerfiles
+        dockerls = {},
+
+        -- Go
+        gopls = {},
+
+        -- TypeScript / JavaScript
+        ts_ls = {},
 
         stylua = {}, -- Used to format Lua code
 
@@ -696,7 +721,10 @@ require('lazy').setup({
       -- You can press `g?` for help in this menu.
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
-        -- You can add other tools here that you want Mason to install
+        'prettier', -- yaml/json/ts/js/css formatting
+        'shfmt', -- shell script formatting
+        'gofumpt', -- go formatting
+        'black', -- python formatting
       })
 
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -740,11 +768,16 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        -- Conform can also run multiple formatters sequentially
-        -- python = { "isort", "black" },
-        --
-        -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        python = { 'black' },
+        go = { 'gofumpt' },
+        sh = { 'shfmt' },
+        bash = { 'shfmt' },
+        javascript = { 'prettier' },
+        typescript = { 'prettier' },
+        json = { 'prettier' },
+        jsonc = { 'prettier' },
+        yaml = { 'prettier' },
+        css = { 'prettier' },
       },
     },
   },
@@ -918,7 +951,11 @@ require('lazy').setup({
     branch = 'main',
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter-intro`
     config = function()
-      local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+      local parsers = {
+        'bash', 'c', 'css', 'diff', 'dockerfile', 'go', 'html', 'javascript',
+        'json', 'jsonc', 'lua', 'luadoc', 'markdown', 'markdown_inline',
+        'python', 'query', 'toml', 'typescript', 'vim', 'vimdoc', 'yaml',
+      }
       require('nvim-treesitter').install(parsers)
       vim.api.nvim_create_autocmd('FileType', {
         callback = function(args)
@@ -958,7 +995,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
