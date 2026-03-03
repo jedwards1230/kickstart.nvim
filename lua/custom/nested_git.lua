@@ -84,15 +84,23 @@ function M.patch_worktree_lookup()
   end
 end
 
---- Find which repo a file path belongs to (uses cached repo list)
+--- Find the git root for a file or directory path (instant, no subprocess).
+--- Checks our cached repos list first, then Neo-tree's registered worktrees.
+--- Also matches when path IS exactly a repo root (for :cd support).
 ---@param path string
 ---@return string? repo_root
-function M.find_repo_for_path(path)
-  -- Check nested repos (already sorted longest-first)
+function M.find_git_root(path)
+  -- 1. Check cached repos list (populated after setup)
   for _, repo in ipairs(M._repos) do
-    if vim.startswith(path, repo .. '/') then
+    if path == repo or vim.startswith(path, repo .. '/') then
       return repo
     end
+  end
+  -- 2. Check neo-tree registered worktrees (uses our patched deepest-match lookup)
+  local ok, git = pcall(require, 'neo-tree.git')
+  if ok then
+    local root = git.find_existing_worktree(path)
+    if root then return root end
   end
   return nil
 end
